@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Network Simulator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <h3>デバイス一覧</h3>
+      <div class="device" draggable="true" data-type="router">Router</div>
+      <div class="device" draggable="true" data-type="switch">Switch</div>
+      <div class="device" draggable="true" data-type="pc">PC</div>
+    </div>
+
+    <hr>
+
+    <div class="sidebar-section">
+      <h3>ツール</h3>
+      <button id="deleteModeBtn">削除モード: OFF</button>
+      <div id="status">MODE: NORMAL</div>
+    </div>
+
+    <hr>
+
+    <div class="sidebar-section">
+      <h3>VLAN データベース</h3>
+      <div class="vlan-input-group">
+        <input id="vlanInput" placeholder="VLAN ID (例: 10)">
+        <button id="addVlanBtn">追加</button>
+      </div>
+      <div id="vlanList"></div>
+    </div>
+
+    <hr>
+
+    <div class="sidebar-section">
+      <h3>Ping テスト</h3>
+      <div id="pingLog"></div>
+      <div class="ping-select-group">
+        <label>From:</label>
+        <select id="pingFrom"></select>
+        <label>To:</label>
+        <select id="pingTo"></select>
+      </div>
+      <button id="pingBtn">PING実行</button>
+    </div>
+  </div>
+
+  <svg id="workspace"></svg>
+
+  <div id="modal" class="hidden">
+    <div class="modal-box">
+      <h3>設定</h3>
+
+      <div id="rowName">
+        <label>名前</label>
+        <input id="modalName">
+      </div>
+
+      <div id="rowIP">
+        <label>IPアドレス</label>
+        <input id="modalIP">
+      </div>
+      <div id="rowMask">
+        <label>サブネットマスク</label>
+        <input id="modalMask">
+      </div>
+      <div id="rowGateway">
+        <label>デフォルトゲートウェイ</label>
+        <input id="modalGateway">
+      </div>
+
+      <div id="rowPortSelect">
+        <label>ポート選択</label>
+        <select id="modalPortSelect"></select>
+      </div>
+
+      <div id="rowPortMode">
+        <label>Mode</label>
+        <select id="modalPortMode">
+          <option value="access">access</option>
+          <option value="trunk">trunk</option>
+        </select>
+      </div>
+      
+      <div id="rowPortVlan">
+        <label>VLAN</label>
+        <select id="modalPortVlan">
+          </select>
+      </div>
+
+      <div id="rowPortIP">
+        <label>Port IP</label>
+        <input id="modalPortIP">
+      </div>
+
+      <div class="modal-buttons">
+        <button id="saveModal">保存</button>
+        <button id="closeModal">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
