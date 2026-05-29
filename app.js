@@ -196,7 +196,7 @@ function createNode(type, x, y) {
 
   g.ports = [];
   createPorts(g, type);
-  
+
   g.setAttribute("transform", `translate(${x}, ${y})`);
   
   attachNodeEvents(g);
@@ -609,13 +609,24 @@ function findConnection(nodeA, nodeB) {
 function sameVlanByPort(conn) {
   const a = conn.a.port;
   const b = conn.b.port;
+  
   const modeA = a.dataset.mode || "access";
   const modeB = b.dataset.mode || "access";
   const vlanA = a.dataset.vlan || "1";
   const vlanB = b.dataset.vlan || "1";
 
-  if (modeA === "trunk" || modeB === "trunk") return true;
+  console.log(
+    `[CHECK] ${a.dataset.portName}(${modeA}, VLAN${vlanA}) ↔ ${b.dataset.portName}(${modeB}, VLAN${vlanB})`
+  );
+
+  
+  if (modeA === "trunk" || modeB === "trunk") 
+    console.log("→ trunk通過 OK");
+    return true;
+
   return vlanA === vlanB;
+
+  console.log(`VLAN一致判定 ${vlanA} === ${vlanB} → ${vlanA === vlanB}`);
 }
 
 function findL2Path(startNode, goalNode, targetSubnetIp = null) {
@@ -634,13 +645,23 @@ function findL2Path(startNode, goalNode, targetSubnetIp = null) {
 
     for (const c of localConns) {
       const neighbor = (c.a.node === last ? c.b.node : c.a.node);
+      if (path.length >= 2 && neighbor === path[path.length - 2]) {
+        continue;
+      }
       const currentPort = (c.a.node === last ? c.a.port : c.b.port);
 
+      
       if (last.dataset.type === "router" && targetSubnetIp) {
-        if (!isSameSubnet(currentPort.dataset.ip, targetSubnetIp)) {
-          continue; 
+        if (neighbor.dataset.type === "router") {
+        } else {
+          if (!isSameSubnet(currentPort.dataset.ip, targetSubnetIp)) {
+            continue;
+          }
         }
       }
+
+      
+      
 
       queue.push([...path, neighbor]);
     }
@@ -792,8 +813,26 @@ async function ping(fromId, toId) {
     const pathSrcToRouter = findL2Path(fromNode, routerNode);
     if (!pathSrcToRouter) { setStatus("error", "PING FAILED: CANNOT REACH GATEWAY"); return false; }
 
-    const pathRouterToDst = findL2Path(routerNode, toNode, toIp);
-    if (!pathRouterToDst) { setStatus("error", "PING FAILED: DESTINATION UNREACHABLE FROM ROUTER"); return false; }
+    let pathRouterToDst = findL2Path(routerNode, toNode, toIp);
+
+    if (!pathRouterToDst) {
+    const otherRouter = findConnectedRouter(routerNode);
+  
+    if (otherRouter) {
+    const pathToOther = findL2Path(routerNode, otherRouter);
+    const pathFromOther = findL2Path(otherRouter, toNode, toIp);
+
+    if (pathToOther && pathFromOther) {
+      pathRouterToDst = [...pathToOther, ...pathFromOther.slice(1)];
+    }
+  }
+}
+    if (!pathRouterToDst) {
+        setStatus("error", "ROUTE NOT FOUND");
+        return false;
+      }
+    if (!routerCanReach(toIp, routerNode)) { setStatus("error", "PING FAILED: DESTINATION UNREACHABLE FROM ROUTER"); return false; }
+
 
     const req1Ok = await travelSegmentPT(pathSrcToRouter, false);
     if (!req1Ok) return false;
@@ -805,10 +844,25 @@ async function ping(fromId, toId) {
     const dstGwIp = toNode.dataset.gateway;
     if (!dstGwIp) { setStatus("error", "PING FAILED: DESTINATION HAS NO GW FOR REPLY"); return false; }
 
-    const hasValidGwPort = routerNode.ports.some(p => p.circle.dataset.ip === dstGwIp);
-    if (!hasValidGwPort) {
-      setStatus("error", "PING FAILED: DESTINATION GW INVALID FOR REPLY"); return false;
-    }
+   
+let hasValidGwPort = routerNode.ports.some(p =>
+  p.circle.dataset.ip === dstGwIp
+);
+
+if (!hasValidGwPort) {
+  const otherRouter = findConnectedRouter(routerNode);
+  if (otherRouter) {
+    hasValidGwPort = otherRouter.ports.some(p =>
+      p.circle.dataset.ip === dstGwIp
+    );
+  }
+}
+
+if (!hasValidGwPort) {
+  setStatus("error", "PING FAILED: DESTINATION GW INVALID FOR REPLY");
+  return false;
+}
+
 
     const replyPathDstToRouter = [...pathRouterToDst].reverse();
     const replyPathRouterToSrc = [...pathSrcToRouter].reverse();
@@ -846,3 +900,34 @@ pingBtn.addEventListener("click", async () => {
     console.error("PING ERROR:", e);
   }
 });
+
+function findConnectedRouter(router) {
+  const conn = connections.find(c =>
+    (c.a.node === router && c.b.node.dataset.type === "router") ||
+    (c.b.node === router && c.a.node.dataset.type === "router")
+  );
+
+  if (!conn) return null;
+
+  return (conn.a.node === router) ? conn.b.node : conn.a.node;
+}
+
+function routerCanReach(targetIp, router) {
+  for (const p of router.ports) {
+    if (isSameSubnet(p.circle.dataset.ip, targetIp)) {
+      return true;
+    }
+  }
+
+  const otherRouter = findConnectedRouter(router);
+  if (!otherRouter) return false;
+
+  for (const p of otherRouter.ports) {
+    if (isSameSubnet(p.circle.dataset.ip, targetIp)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
