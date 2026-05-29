@@ -56,6 +56,7 @@ const pingFrom = document.getElementById("pingFrom");
 const pingTo = document.getElementById("pingTo");
 const pingBtn = document.getElementById("pingBtn");
 
+// 削除モード
 deleteModeBtn.addEventListener("click", () => {
   deleteMode = !deleteMode;
   deleteModeBtn.textContent = deleteMode ? "削除モード: ON" : "削除モード: OFF";
@@ -68,6 +69,7 @@ deleteModeBtn.addEventListener("click", () => {
   }
 });
 
+// VLAN生成
 addVlanBtn.onclick = () => {
   const id = parseInt(vlanInput.value);
   if (!id || id < 1 || id > 4094) {
@@ -301,7 +303,6 @@ function updateCombinedHUD(g) {
     currentLineOffset = 12;
   });
 }
-
 function attachNodeEvents(g) {
   let drag = false;
   let offset = { x: 0, y: 0 };
@@ -360,7 +361,6 @@ function attachNodeEvents(g) {
     openModalWithNode(g);
   });
 }
-
 function openModalWithNode(g) {
   rowPortSelect.style.display = "none";
   rowPortMode.style.display = "none";
@@ -426,7 +426,6 @@ function openModalWithPort(g, c) {
   }
   modal.classList.add("show");
 }
-
 document.getElementById("saveModal").onclick = () => {
   if (editingPort) {
     const type = editingPort._node.dataset.type;
@@ -502,16 +501,13 @@ function handlePortClick(node, port) {
     return;
   }
 
-  // 配線管理用のSVGグループ要素を生成
   const connGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
   connGroup.setAttribute("class", "conn-clickable");
 
-  // 1. マウスクリック判定を広げるための透明な太い線
   const bgLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
   bgLine.setAttribute("stroke", "transparent");
   bgLine.setAttribute("stroke-width", "12");
 
-  // 2. 実際に画面へ描画される実線
   const visibleLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
   visibleLine.setAttribute("class", "visible-line");
   visibleLine.setAttribute("stroke", "#2c3e50");
@@ -521,14 +517,12 @@ function handlePortClick(node, port) {
   connGroup.appendChild(visibleLine);
   workspace.insertBefore(connGroup, workspace.firstChild);
 
-  // データ構造オブジェクトを作成
   const conn = {
     a: { node: selectedPort.node, port: selectedPort.port },
     b: { node: node, port: port },
     group: connGroup
   };
 
-  // オブジェクト登録後にクリックイベントを設定（初期化順序の修正）
   connGroup.addEventListener("click", e => {
     if (deleteMode) {
       e.stopPropagation();
@@ -573,6 +567,7 @@ function findNodeById(id) {
   return getAllNodes().find(g => g.dataset.id === id);
 }
 
+// PingPC選択
 function refreshPingSelects() {
   pingFrom.innerHTML = "";
   pingTo.innerHTML = "";
@@ -599,6 +594,7 @@ function refreshPingSelects() {
   });
 }
 
+// 2つのノード間に接続されている配線オブジェクトを探して返す
 function findConnection(nodeA, nodeB) {
   return connections.find(c =>
     (c.a.node === nodeA && c.b.node === nodeB) ||
@@ -606,6 +602,7 @@ function findConnection(nodeA, nodeB) {
   );
 }
 
+// リンクの両端に位置するスイッチポートのVLAN設定を検証、双方がアクセスで同一VLANか、あるいはトランクであるかをチェック
 function sameVlanByPort(conn) {
   const a = conn.a.port;
   const b = conn.b.port;
@@ -619,16 +616,15 @@ function sameVlanByPort(conn) {
     `[CHECK] ${a.dataset.portName}(${modeA}, VLAN${vlanA}) ↔ ${b.dataset.portName}(${modeB}, VLAN${vlanB})`
   );
 
-  
-  if (modeA === "trunk" || modeB === "trunk") 
+  if (modeA === "trunk" || modeB === "trunk") {
     console.log("→ trunk通過 OK");
     return true;
+  }
 
   return vlanA === vlanB;
-
-  console.log(`VLAN一致判定 ${vlanA} === ${vlanB} → ${vlanA === vlanB}`);
 }
 
+// 幅優先探索を用いて、開始ノードから目的ノードまでのL2転送経路を接続情報を元に検索・算出する
 function findL2Path(startNode, goalNode, targetSubnetIp = null) {
   const queue = [[startNode]];
   const visited = new Set();
@@ -650,7 +646,6 @@ function findL2Path(startNode, goalNode, targetSubnetIp = null) {
       }
       const currentPort = (c.a.node === last ? c.a.port : c.b.port);
 
-      
       if (last.dataset.type === "router" && targetSubnetIp) {
         if (neighbor.dataset.type === "router") {
         } else {
@@ -660,15 +655,13 @@ function findL2Path(startNode, goalNode, targetSubnetIp = null) {
         }
       }
 
-      
-      
-
       queue.push([...path, neighbor]);
     }
   }
   return null;
 }
 
+// パケット通信の視覚効果に使用する封筒型SVG図形生成
 function createPDU(x, y, pduColor = "#9b59b6") {
   if (!workspace) return null;
   const pduGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -695,9 +688,9 @@ function createPDU(x, y, pduColor = "#9b59b6") {
   workspace.appendChild(pduGroup);
   return pduGroup;
 }
-
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+// アニメーション実行
 function animatePacketTracer(from, to, duration = 1200, pduColor = "#9b59b6", isDrop = false) {
   return new Promise(resolve => {
     const p1 = getPortPos(from);
@@ -733,6 +726,7 @@ function animatePacketTracer(from, to, duration = 1200, pduColor = "#9b59b6", is
   });
 }
 
+// 2つのIPアドレスの第3オクテットまで比較し、同一のサブネットに所属しているかを判定
 function isSameSubnet(ip1, ip2, mask = "255.255.255.0") {
   if (!ip1 || !ip2 || ip1 === "-" || ip2 === "-") return false;
   const net1 = ip1.split(".").slice(0, 3).join(".");
@@ -740,6 +734,7 @@ function isSameSubnet(ip1, ip2, mask = "255.255.255.0") {
   return net1 === net2;
 }
 
+// 全ルータのインターフェース情報を検索し、指定されたGWに一致するポートを持つルータオブジェクトを抽出
 function findRouterPortByIp(ip) {
   const nodes = getAllNodes();
   for (const node of nodes) {
@@ -752,6 +747,7 @@ function findRouterPortByIp(ip) {
   return null;
 }
 
+// 算出された経路に沿ってノード間をアニメーション
 async function travelSegmentPT(pathNodes, isReply = false) {
   const pduColor = isReply ? "#2ecc71" : "#9b59b6";
   for (let i = 0; i < pathNodes.length - 1; i++) {
@@ -775,6 +771,7 @@ async function travelSegmentPT(pathNodes, isReply = false) {
   return true;
 }
 
+// 同一サブネットまたはデフォルトゲートウェイ経由のL2/L3経路探索を行い、パケットの巡回シミュレート
 async function ping(fromId, toId) {
   const fromNode = findNodeById(fromId);
   const toNode = findNodeById(toId);
@@ -816,23 +813,21 @@ async function ping(fromId, toId) {
     let pathRouterToDst = findL2Path(routerNode, toNode, toIp);
 
     if (!pathRouterToDst) {
-    const otherRouter = findConnectedRouter(routerNode);
-  
-    if (otherRouter) {
-    const pathToOther = findL2Path(routerNode, otherRouter);
-    const pathFromOther = findL2Path(otherRouter, toNode, toIp);
+      const otherRouter = findConnectedRouter(routerNode);
+      if (otherRouter) {
+        const pathToOther = findL2Path(routerNode, otherRouter);
+        const pathFromOther = findL2Path(otherRouter, toNode, toIp);
 
-    if (pathToOther && pathFromOther) {
-      pathRouterToDst = [...pathToOther, ...pathFromOther.slice(1)];
-    }
-  }
-}
-    if (!pathRouterToDst) {
-        setStatus("error", "ROUTE NOT FOUND");
-        return false;
+        if (pathToOther && pathFromOther) {
+          pathRouterToDst = [...pathToOther, ...pathFromOther.slice(1)];
+        }
       }
+    }
+    if (!pathRouterToDst) {
+      setStatus("error", "ROUTE NOT FOUND");
+      return false;
+    }
     if (!routerCanReach(toIp, routerNode)) { setStatus("error", "PING FAILED: DESTINATION UNREACHABLE FROM ROUTER"); return false; }
-
 
     const req1Ok = await travelSegmentPT(pathSrcToRouter, false);
     if (!req1Ok) return false;
@@ -844,25 +839,23 @@ async function ping(fromId, toId) {
     const dstGwIp = toNode.dataset.gateway;
     if (!dstGwIp) { setStatus("error", "PING FAILED: DESTINATION HAS NO GW FOR REPLY"); return false; }
 
-   
-let hasValidGwPort = routerNode.ports.some(p =>
-  p.circle.dataset.ip === dstGwIp
-);
-
-if (!hasValidGwPort) {
-  const otherRouter = findConnectedRouter(routerNode);
-  if (otherRouter) {
-    hasValidGwPort = otherRouter.ports.some(p =>
+    let hasValidGwPort = routerNode.ports.some(p =>
       p.circle.dataset.ip === dstGwIp
     );
-  }
-}
 
-if (!hasValidGwPort) {
-  setStatus("error", "PING FAILED: DESTINATION GW INVALID FOR REPLY");
-  return false;
-}
+    if (!hasValidGwPort) {
+      const otherRouter = findConnectedRouter(routerNode);
+      if (otherRouter) {
+        hasValidGwPort = otherRouter.ports.some(p =>
+          p.circle.dataset.ip === dstGwIp
+        );
+      }
+    }
 
+    if (!hasValidGwPort) {
+      setStatus("error", "PING FAILED: DESTINATION GW INVALID FOR REPLY");
+      return false;
+    }
 
     const replyPathDstToRouter = [...pathRouterToDst].reverse();
     const replyPathRouterToSrc = [...pathSrcToRouter].reverse();
@@ -877,6 +870,7 @@ if (!hasValidGwPort) {
   }
 }
 
+// 結果やエラーに応じた色のテキストメッセージを表示・書き換え
 function setStatus(type, message) {
   if (!status) return;
   status.textContent = message;
@@ -891,6 +885,7 @@ function getPortPos(port) {
   return pt.matrixTransform(matrix);
 }
 
+// Ping実行
 pingBtn.addEventListener("click", async () => {
   try {
     const from = pingFrom.value;
@@ -901,6 +896,7 @@ pingBtn.addEventListener("click", async () => {
   }
 });
 
+// ルータに直接接続されているルータが存在するかを検索、存在する場合はそのルータを返す
 function findConnectedRouter(router) {
   const conn = connections.find(c =>
     (c.a.node === router && c.b.node.dataset.type === "router") ||
@@ -912,6 +908,7 @@ function findConnectedRouter(router) {
   return (conn.a.node === router) ? conn.b.node : conn.a.node;
 }
 
+// ルータ自身のインターフェース、隣接ルータの持つインターフェースに対象IPのサブネットルートが存在するか検証
 function routerCanReach(targetIp, router) {
   for (const p of router.ports) {
     if (isSameSubnet(p.circle.dataset.ip, targetIp)) {
@@ -930,4 +927,3 @@ function routerCanReach(targetIp, router) {
 
   return false;
 }
-
